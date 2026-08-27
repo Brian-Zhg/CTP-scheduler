@@ -21,8 +21,8 @@ export default async function handler(req, res) {
             2. Compute event start and end timestamps in the user's LOCAL time.
             3. Return strictly a valid JSON array of objects.
             4. Format "start" and "end" as "YYYY-MM-DDTHH:mm:ss" (NO trailing "Z" and NO UTC offsets).
-            5. Default event duration to 30 minutes if unspecified.
-            6. Evaluate if the event is an all-day event. Set "allDay" to true if the user explicitly says "all day", or if the time range spans 23 hours or more (e.g., "1 am to 12 am"). Otherwise, set it to false.
+            5. Default event duration to 30 minutes if unspecified and it is a timed event.
+            6. Evaluate if the event is an all-day event. Set "allDay" to true if the user explicitly says "all day", if the time range spans 23 hours or more (e.g., "1 am to 12 am"), or if the user mentions a day but provides NO specific time (e.g., "do nothing today", "vacation tomorrow"). Otherwise, set it to false.
             7. Do not wrap output in markdown codeblocks.
 
             JSON Schema:
