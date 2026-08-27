@@ -67,15 +67,12 @@
             </p>
         </header>
 
-
         <!-- Input Section -->
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
 
             <label for="promptInput" class="block text-sm font-medium text-gray-700 mb-2">
-
                 What do you have planned?
                 (e.g., "Team meeting tomorrow from 2pm to 3pm")
-
             </label>
 
             <textarea id="promptInput" rows="3" class="w-full border-gray-300 rounded-lg shadow-sm
@@ -86,34 +83,31 @@
             <div class="mt-4 flex items-center justify-between">
 
                 <span id="statusMessage" class="text-sm font-medium text-blue-600 hidden">
-
                     Processing with Gemini...
-
                 </span>
 
-                <button id="submitBtn" class="ml-auto bg-blue-600 text-white px-6 py-2
-                           rounded-lg font-medium hover:bg-blue-700
-                           transition focus:outline-none
-                           focus:ring-2 focus:ring-blue-500
-                           focus:ring-offset-2">
-
-                    Add to Calendar
-
-                </button>
+                <div class="ml-auto flex space-x-3">
+                    <button id="exportBtn" class="bg-emerald-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-emerald-700 transition focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+                        Export to .ics
+                    </button>
+                    <button id="submitBtn" class="bg-blue-600 text-white px-6 py-2
+                               rounded-lg font-medium hover:bg-blue-700
+                               transition focus:outline-none
+                               focus:ring-2 focus:ring-blue-500
+                               focus:ring-offset-2">
+                        Add to Calendar
+                    </button>
+                </div>
 
             </div>
         </div>
 
-
         <!-- Calendar -->
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-
             <div id="calendar"></div>
-
         </div>
 
     </div>
-
 
 <script>
     let calendar;
@@ -177,6 +171,49 @@
         });
 
         calendar.render();
+    });
+
+    // Handle ICS Export
+    document.getElementById('exportBtn').addEventListener('click', () => {
+        const events = calendar.getEvents();
+        if (events.length === 0) {
+            alert("No events to export!");
+            return;
+        }
+
+        const formatICalDate = (date) => {
+            return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        };
+
+        let icsContent = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//AI Smart Scheduler//EN'
+        ];
+
+        events.forEach(event => {
+            const start = event.start ? formatICalDate(new Date(event.start)) : '';
+            const end = event.end 
+                ? formatICalDate(new Date(event.end)) 
+                : formatICalDate(new Date(new Date(event.start).getTime() + 30 * 60000));
+
+            icsContent.push('BEGIN:VEVENT');
+            icsContent.push(`SUMMARY:${event.title}`);
+            icsContent.push(`DTSTART:${start}`);
+            icsContent.push(`DTEND:${end}`);
+            icsContent.push(`UID:${Math.random().toString(36).substring(2)}@aischeduler.local`);
+            icsContent.push('END:VEVENT');
+        });
+
+        icsContent.push('END:VCALENDAR');
+
+        const blob = new Blob([icsContent.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'my-schedule.ics';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     });
 
     // Handle Form Submission
