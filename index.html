@@ -115,6 +115,18 @@
 
 <script>
     let calendar;
+    const eventColors = [
+        { backgroundColor: '#2563eb', borderColor: '#1d4ed8', textColor: '#ffffff' },
+        { backgroundColor: '#16a34a', borderColor: '#15803d', textColor: '#ffffff' },
+        { backgroundColor: '#ea580c', borderColor: '#c2410c', textColor: '#ffffff' },
+        { backgroundColor: '#9333ea', borderColor: '#7e22ce', textColor: '#ffffff' },
+        { backgroundColor: '#db2777', borderColor: '#be185d', textColor: '#ffffff' },
+        { backgroundColor: '#0891b2', borderColor: '#0e7490', textColor: '#ffffff' }
+    ];
+
+    function getRandomEventColor() {
+        return eventColors[Math.floor(Math.random() * eventColors.length)];
+    }
 
     // Helper functions for LocalStorage
     function saveEvents() {
@@ -122,7 +134,10 @@
             title: event.title,
             start: event.startStr,
             end: event.endStr,
-            allDay: event.allDay
+            allDay: event.allDay,
+            backgroundColor: event.backgroundColor,
+            borderColor: event.borderColor,
+            textColor: event.textColor
         }));
 
         localStorage.setItem("calendarEvents", JSON.stringify(events));
@@ -133,7 +148,10 @@
         if (!savedEvents) return [];
 
         try {
-            return JSON.parse(savedEvents);
+            return JSON.parse(savedEvents).map(event => ({
+                ...event,
+                ...(event.backgroundColor ? {} : getRandomEventColor())
+            }));
         } catch (error) {
             console.error("Could not load saved events:", error);
             return [];
@@ -314,13 +332,13 @@
             const events = await response.json();
 
             events.forEach(event => {
+                const color = getRandomEventColor();
                 calendar.addEvent({
                     title: event.title,
                     start: event.start,
                     end: event.end,
                     allDay: event.allDay,
-                    backgroundColor: '#3b82f6',
-                    borderColor: '#2563eb'
+                    ...color
                 });
             });
 
