@@ -22,18 +22,21 @@ export default async function handler(req, res) {
             3. Return strictly a valid JSON array of objects.
             4. Format "start" and "end" as "YYYY-MM-DDTHH:mm:ss" (NO trailing "Z" and NO UTC offsets).
             5. Default event duration to 30 minutes if unspecified.
-            6. Do not wrap output in markdown codeblocks.
+            6. Evaluate if the event is an all-day event. Set "allDay" to true if the user explicitly says "all day", or if the time range spans 23 hours or more (e.g., "1 am to 12 am"). Otherwise, set it to false.
+            7. Do not wrap output in markdown codeblocks.
 
             JSON Schema:
             [
               {
                 "title": "string",
                 "start": "YYYY-MM-DDTHH:mm:ss",
-                "end": "YYYY-MM-DDTHH:mm:ss"
+                "end": "YYYY-MM-DDTHH:mm:ss",
+                "allDay": boolean
               }
             ]
         `;
 
+        // Updated model version here
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
