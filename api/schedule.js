@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
             3. Return strictly a valid JSON array of objects.
             4. Format "start" and "end" as "YYYY-MM-DDTHH:mm:ss" (NO trailing "Z" and NO UTC offsets).
             5. Default event duration to 30 minutes if unspecified and it is a timed event.
-            6. Evaluate if the event is an all-day event. Set "allDay" to true if the user explicitly says "all day", if the time range spans 23 hours or more (e.g., "1 am to 12 am"), or if the user mentions a day but provides NO specific time (e.g., "do nothing today", "vacation tomorrow"). Otherwise, set it to false.
+            6. Evaluate if the event is an all-day event. Set "allDay" to true if the user explicitly says "all day", if the time range spans 23 hours or more (e.g., "1 am to 12 am"), or if the user mentions a day but provides NO specific time (e.g., "do nothing today"). Otherwise, set it to false.
             7. Do not wrap output in markdown codeblocks.
 
             JSON Schema:
@@ -36,8 +36,7 @@ export default async function handler(req, res) {
             ]
         `;
 
-        // Updated model version here
-        c   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -67,4 +66,4 @@ export default async function handler(req, res) {
         console.error("Server execution error:", error);
         return res.status(500).json({ error: 'Failed to process request on backend' });
     }
-}
+};
