@@ -64,10 +64,6 @@
     </div>
 
     <script>
-        // --- CONFIGURATION ---
-        // Replace this with your actual Gemini API Key
-        const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
-        
         // --- INITIALIZE CALENDAR ---
         let calendar;
         document.addEventListener('DOMContentLoaded', function() {
@@ -87,7 +83,7 @@
             calendar.render();
         });
 
-        // --- GEMINI API INTEGRATION ---
+        // --- SECURE BACKEND INTEGRATION ---
         document.getElementById('submitBtn').addEventListener('click', async () => {
             const inputField = document.getElementById('promptInput');
             const statusMessage = document.getElementById('statusMessage');
@@ -102,44 +98,25 @@
             document.getElementById('submitBtn').disabled = true;
 
             try {
-                // Get the current date so Gemini knows what "tomorrow" means
+                // Get the current date so Gemini knows what "tomorrow" means relative to right now
                 const currentDate = new Date().toISOString();
                 
-                // Construct the system instruction for Gemini
-                const systemInstruction = `
-                    You are a scheduling assistant. The user will provide a text describing events.
-                    The current date and time is ${currentDate}.
-                    Extract the events and return ONLY a valid JSON array of objects. 
-                    Do not include markdown blocks like \`\`\`json.
-                    Each object must have exactly these keys:
-                    - "title": A short string title of the event.
-                    - "start": An ISO 8601 formatted date-time string.
-                    - "end": An ISO 8601 formatted date-time string (guess the end time if not provided, usually 1 hour).
-                `;
-
-                // Call the Gemini API
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                // Call your secure Vercel backend endpoint
+                const response = await fetch('/api/schedule', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: `${systemInstruction}\n\nUser Input: ${promptText}` }] }]
+                        promptText: promptText,
+                        currentDate: currentDate
                     })
                 });
 
-                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                if (!response.ok) throw new Error(`Server Error: ${response.status}`);
                 
-                const data = await response.json();
-                
-                // Extract the raw text from Gemini's response
-                let rawJson = data.candidates[0].content.parts[0].text.trim();
-                
-                // Clean up any markdown code blocks if Gemini accidentally included them
-                rawJson = rawJson.replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+                // Retrieve the parsed JSON array from your backend
+                const events = await response.json();
 
-                // Parse the JSON array
-                const events = JSON.parse(rawJson);
-
-                // Add each event to the FullCalendar instance
+                // Add each event to the FullCalendar instance dynamically
                 events.forEach(event => {
                     calendar.addEvent({
                         title: event.title,
@@ -157,7 +134,7 @@
 
             } catch (error) {
                 console.error(error);
-                statusMessage.textContent = 'Error processing request. Check console and API key.';
+                statusMessage.textContent = 'Error processing request. Check console and your Vercel deployment logs.';
                 statusMessage.className = 'text-sm font-medium text-red-600';
             } finally {
                 statusMessage.classList.remove('hidden');
