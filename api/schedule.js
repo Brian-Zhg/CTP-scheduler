@@ -1,16 +1,13 @@
 export default async function handler(req, res) {
-    // Only allow POST requests
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     const { promptText, currentDate } = req.body;
-    
-    // Securely pull the key from Vercel's environment variables
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-        return res.status(500).json({ error: 'API key not found in Vercel' });
+        return res.status(500).json({ error: 'API key not found in Vercel environment' });
     }
 
     try {
@@ -34,18 +31,27 @@ export default async function handler(req, res) {
         });
 
         const data = await response.json();
+
+        // Catch API-level errors (like an invalid key)
+        if (!response.ok) {
+            console.error("Gemini API Error:", data);
+            return res.status(500).json({ error: data.error?.message || 'Gemini API rejected the request.' });
+        }
+
+        // Catch empty or blocked responses
+        if (!data.candidates || data.candidates.length === 0) {
+            console.error("Empty response:", data);
+            return res.status(500).json({ error: 'Gemini returned an empty response.' });
+        }
         
-        // Clean up Markdown formatting from Gemini's response
         let rawJson = data.candidates[0].content.parts[0].text.trim();
         rawJson = rawJson.replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
         
         const events = JSON.parse(rawJson);
-        
-        // Send the parsed JSON array back to your HTML frontend
         return res.status(200).json(events);
 
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ error: 'Failed to process request' });
+        console.error("Server execution error:", error);
+        return res.status(500).json({ error: 'Failed to process request on backend' });
     }
 }
