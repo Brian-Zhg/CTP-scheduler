@@ -97,10 +97,17 @@
             document.getElementById('submitBtn').disabled = true;
 
             try {
-                // Get user's exact local time and timezone
                 const now = new Date();
                 const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
                 const localDateString = now.toString();
+                
+                // Grab all currently displayed events from FullCalendar
+                const currentEvents = calendar.getEvents().map(e => ({
+                    title: e.title,
+                    start: e.startStr,
+                    end: e.endStr,
+                    allDay: e.allDay
+                }));
                 
                 const response = await fetch('/api/schedule', {
                     method: 'POST',
@@ -108,7 +115,8 @@
                     body: JSON.stringify({
                         promptText: promptText,
                         currentDate: localDateString,
-                        timeZone: userTimeZone
+                        timeZone: userTimeZone,
+                        existingEvents: currentEvents // Send context to backend
                     })
                 });
 
