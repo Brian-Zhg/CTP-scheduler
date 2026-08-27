@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Smart Scheduler</title>
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 
@@ -48,36 +49,27 @@
         <!-- Input Section -->
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
 
-            <label for="promptInput"
-                class="block text-sm font-medium text-gray-700 mb-2">
+            <label for="promptInput" class="block text-sm font-medium text-gray-700 mb-2">
 
                 What do you have planned?
                 (e.g., "Team meeting tomorrow from 2pm to 3pm")
 
             </label>
 
-            <textarea
-                id="promptInput"
-                rows="3"
-                class="w-full border-gray-300 rounded-lg shadow-sm
+            <textarea id="promptInput" rows="3" class="w-full border-gray-300 rounded-lg shadow-sm
                        focus:ring-blue-500 focus:border-blue-500
-                       p-3 border resize-none"
-                placeholder="Type your activities here...">
+                       p-3 border resize-none" placeholder="Type your activities here...">
             </textarea>
 
             <div class="mt-4 flex items-center justify-between">
 
-                <span
-                    id="statusMessage"
-                    class="text-sm font-medium text-blue-600 hidden">
+                <span id="statusMessage" class="text-sm font-medium text-blue-600 hidden">
 
                     Processing with Gemini...
 
                 </span>
 
-                <button
-                    id="submitBtn"
-                    class="ml-auto bg-blue-600 text-white px-6 py-2
+                <button id="submitBtn" class="ml-auto bg-blue-600 text-white px-6 py-2
                            rounded-lg font-medium hover:bg-blue-700
                            transition focus:outline-none
                            focus:ring-2 focus:ring-blue-500
@@ -101,391 +93,145 @@
     </div>
 
 
-    <script>
+<script>
+    let calendar;
 
-        let calendar;
-        document.addEventListener('DOMContentLoaded', function() {
-            const calendarEl = document.getElementById('calendar');
-            calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'timeGridWeek',
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
-                },
-                events: [], // Starts empty
-                editable: true,
-                selectable: true,
-                nowIndicator: true,
-                scrollTime: '01:00:00',
-                // Add click listener for deletion
-                eventClick: function(info) {
-                    if (confirm(`Delete the event: "${info.event.title}"?`)) {
-                        info.event.remove();
-                    }
+    // Helper functions for LocalStorage
+    function saveEvents() {
+        const events = calendar.getEvents().map(event => ({
+            title: event.title,
+            start: event.startStr,
+            end: event.endStr,
+            allDay: event.allDay
+        }));
+
+        localStorage.setItem("calendarEvents", JSON.stringify(events));
+    }
+
+    function loadEvents() {
+        const savedEvents = localStorage.getItem("calendarEvents");
+        if (!savedEvents) return [];
+
+        try {
+            return JSON.parse(savedEvents);
+        } catch (error) {
+            console.error("Could not load saved events:", error);
+            return [];
+        }
+    }
+
+    // Initialize Calendar once DOM is ready
+    document.addEventListener('DOMContentLoaded', function () {
+        const calendarEl = document.getElementById('calendar');
+        const savedEvents = loadEvents();
+
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'timeGridWeek',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            events: savedEvents,
+            editable: true,
+            selectable: true,
+            nowIndicator: true,
+            scrollTime: '01:00:00',
+
+            // Delete event on click
+            eventClick: function (info) {
+                if (confirm(`Delete the event: "${info.event.title}"?`)) {
+                    info.event.remove(); // Triggers eventRemove callback below
                 }
-            });
-            calendar.render();
+            },
+
+            // Save changes to LocalStorage
+            eventChange: function () {
+                saveEvents();
+            },
+            eventRemove: function () {
+                saveEvents();
+            }
         });
 
+        calendar.render();
+    });
 
-        // ==========================================
-        // SAVE EVENTS TO LOCAL STORAGE
-        // ==========================================
+    // Handle Form Submission
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+        const inputField = document.getElementById('promptInput');
+        const statusMessage = document.getElementById('statusMessage');
+        const promptText = inputField.value.trim();
 
-        function saveEvents() {
+        if (!promptText) {
+            return alert("Please enter an activity first.");
+        }
 
-            const events = calendar.getEvents().map(event => ({
+        statusMessage.classList.remove('hidden');
+        statusMessage.textContent = 'Processing with Gemini...';
+        statusMessage.className = 'text-sm font-medium text-blue-600';
+        document.getElementById('submitBtn').disabled = true;
 
-                title: event.title,
-
-                start: event.startStr,
-
-                end: event.endStr,
-
-                allDay: event.allDay
-
+        try {
+            const now = new Date();
+            const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const localDateString = now.toString();
+            const currentEvents = calendar.getEvents().map(e => ({
+                title: e.title,
+                start: e.startStr,
+                end: e.endStr,
+                allDay: e.allDay
             }));
 
+            const response = await fetch('/api/schedule', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    promptText: promptText,
+                    currentDate: localDateString,
+                    timeZone: userTimeZone,
+                    existingEvents: currentEvents
+                })
+            });
 
-            localStorage.setItem(
-                "calendarEvents",
-                JSON.stringify(events)
-            );
+            if (!response.ok) {
+                throw new Error(`Server Error: ${response.status}`);
+            }
 
+            const events = await response.json();
+
+            events.forEach(event => {
+                calendar.addEvent({
+                    title: event.title,
+                    start: event.start,
+                    end: event.end,
+                    allDay: event.allDay,
+                    backgroundColor: '#3b82f6',
+                    borderColor: '#2563eb'
+                });
+            });
+
+            saveEvents();
+
+            statusMessage.textContent = `Successfully added ${events.length} event(s)!`;
+            statusMessage.className = 'text-sm font-medium text-green-600';
+            inputField.value = '';
+
+        } catch (error) {
+            console.error(error);
+            statusMessage.textContent = 'Error processing request. Check console.';
+            statusMessage.className = 'text-sm font-medium text-red-600';
+        } finally {
+            statusMessage.classList.remove('hidden');
+            document.getElementById('submitBtn').disabled = false;
+
+            setTimeout(() => {
+                statusMessage.classList.add('hidden');
+            }, 3000);
         }
-
-
-        // ==========================================
-        // LOAD EVENTS FROM LOCAL STORAGE
-        // ==========================================
-
-        function loadEvents() {
-
-            const savedEvents =
-                localStorage.getItem("calendarEvents");
-
-
-            if (!savedEvents) {
-                return [];
-            }
-
-
-            try {
-
-                return JSON.parse(savedEvents);
-
-            } catch (error) {
-
-                console.error(
-                    "Could not load saved events:",
-                    error
-                );
-
-                return [];
-
-            }
-
-        }
-
-
-        // ==========================================
-        // INITIALIZE CALENDAR
-        // ==========================================
-
-        document.addEventListener(
-            'DOMContentLoaded',
-            function() {
-
-                const calendarEl =
-                    document.getElementById('calendar');
-
-
-                // Get saved events
-                const savedEvents = loadEvents();
-
-
-                calendar =
-                    new FullCalendar.Calendar(
-                        calendarEl,
-                        {
-
-                            initialView: 'timeGridWeek',
-
-
-                            headerToolbar: {
-
-                                left: 'prev,next today',
-
-                                center: 'title',
-
-                                right:
-                                    'dayGridMonth,timeGridWeek,timeGridDay'
-
-                            },
-
-
-                            // IMPORTANT:
-                            // Load saved events instead of []
-                            events: savedEvents,
-
-
-                            editable: true,
-
-                            selectable: true,
-
-                            nowIndicator: true,
-
-
-                            // Save when an event
-                            // is moved or resized
-                            eventChange: function() {
-
-                                saveEvents();
-
-                            },
-
-
-                            // Save when an event
-                            // is removed
-                            eventRemove: function() {
-
-                                saveEvents();
-
-                            }
-
-                        }
-                    );
-
-
-                calendar.render();
-
-            }
-        );
-
-
-        // ==========================================
-        // ADD EVENT BUTTON
-        // ==========================================
-
-        document
-            .getElementById('submitBtn')
-            .addEventListener(
-                'click',
-                async () => {
-
-
-                    const inputField =
-                        document.getElementById(
-                            'promptInput'
-                        );
-
-
-                    const statusMessage =
-                        document.getElementById(
-                            'statusMessage'
-                        );
-
-
-                    const promptText =
-                        inputField.value.trim();
-
-
-                    if (!promptText) {
-
-                        return alert(
-                            "Please enter an activity first."
-                        );
-
-                    }
-
-
-                    statusMessage.classList.remove(
-                        'hidden'
-                    );
-
-
-                    statusMessage.textContent =
-                        'Processing with Gemini...';
-
-
-                    statusMessage.className =
-                        'text-sm font-medium text-blue-600';
-
-
-                    document.getElementById(
-                        'submitBtn'
-                    ).disabled = true;
-
-
-                    try {
-
-
-                        // Current date/time
-                        const now = new Date();
-
-
-                        const userTimeZone =
-                            Intl.DateTimeFormat()
-                                .resolvedOptions()
-                                .timeZone;
-
-
-                        const localDateString =
-                            now.toString();
-
-
-                        // Get current calendar events
-                        const currentEvents =
-                            calendar
-                                .getEvents()
-                                .map(e => ({
-
-                                    title: e.title,
-
-                                    start: e.startStr,
-
-                                    end: e.endStr,
-
-                                    allDay: e.allDay
-
-                                }));
-
-
-                        // Send to backend
-                        const response =
-                            await fetch(
-                                '/api/schedule',
-                                {
-
-                                    method: 'POST',
-
-                                    headers: {
-                                        'Content-Type':
-                                            'application/json'
-                                    },
-
-                                    body: JSON.stringify({
-
-                                        promptText:
-                                            promptText,
-
-                                        currentDate:
-                                            localDateString,
-
-                                        timeZone:
-                                            userTimeZone,
-
-                                        existingEvents:
-                                            currentEvents
-
-                                    })
-
-                                }
-                            );
-
-
-                        if (!response.ok) {
-
-                            throw new Error(
-                                `Server Error: ${response.status}`
-                            );
-
-                        }
-
-
-                        // Get events from backend
-                        const events =
-                            await response.json();
-
-
-                        // Add events to calendar
-                        events.forEach(event => {
-
-                            calendar.addEvent({
-
-                                title:
-                                    event.title,
-
-                                start:
-                                    event.start,
-
-                                end:
-                                    event.end,
-
-                                allDay:
-                                    event.allDay,
-
-                                backgroundColor:
-                                    '#3b82f6',
-
-                                borderColor:
-                                    '#2563eb'
-
-                            });
-
-                        });
-
-
-                        // ==================================
-                        // SAVE EVENTS
-                        // ==================================
-
-                        saveEvents();
-
-
-                        statusMessage.textContent =
-                            `Successfully added ${events.length} event(s)!`;
-
-
-                        statusMessage.className =
-                            'text-sm font-medium text-green-600';
-
-
-                        inputField.value = '';
-
-
-                    } catch (error) {
-
-
-                        console.error(error);
-
-
-                        statusMessage.textContent =
-                            'Error processing request. Check console.';
-
-
-                        statusMessage.className =
-                            'text-sm font-medium text-red-600';
-
-
-                    } finally {
-
-
-                        statusMessage.classList.remove(
-                            'hidden'
-                        );
-
-
-                        document.getElementById(
-                            'submitBtn'
-                        ).disabled = false;
-
-
-                        setTimeout(() => {
-
-                            statusMessage.classList.add(
-                                'hidden'
-                            );
-
-                        }, 3000);
-
-                    }
-
-                }
-            );
-
-    </script>
+    });
+</script>
 
 </body>
+
 </html>
