@@ -2,4 +2,3 @@
 
 We're making the best AI powered scheduler 
 
-Brian Zhang Hunter College CS major is the mastermind behind this amazing idea
