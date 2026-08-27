@@ -87,6 +87,10 @@
                 </span>
 
                 <div class="ml-auto flex space-x-3">
+                    <button id="micBtn" type="button" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition focus:outline-none">
+                        Speech to Text
+                    </button>
+
                     <button id="exportBtn" class="bg-emerald-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-emerald-700 transition focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
                         Export to .ics
                     </button>
@@ -215,6 +219,56 @@
         link.click();
         document.body.removeChild(link);
     });
+
+    // ==========================================
+    // SPEECH TO TEXT LOGIC
+    // ==========================================
+    const micBtn = document.getElementById('micBtn');
+    const inputField = document.getElementById('promptInput');
+
+    // Cross-browser support for Speech Recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false; // Stops listening automatically when you pause
+        recognition.interimResults = false;
+
+        // UI changes when listening starts
+        recognition.onstart = function() {
+            micBtn.textContent = 'Listening...';
+            micBtn.classList.remove('bg-gray-200', 'text-gray-700');
+            micBtn.classList.add('bg-red-500', 'text-white', 'animate-pulse');
+        };
+
+        // When speech is successfully converted to text
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            // Add space before appending if the box already has text
+            inputField.value += (inputField.value.trim() ? ' ' : '') + transcript;
+        };
+
+        // Revert UI when listening stops
+        recognition.onend = function() {
+            micBtn.textContent = '🎤 Speak';
+            micBtn.classList.remove('bg-red-500', 'text-white', 'animate-pulse');
+            micBtn.classList.add('bg-gray-200', 'text-gray-700');
+        };
+
+        recognition.onerror = function(event) {
+            console.error("Microphone error:", event.error);
+            alert("Microphone error: " + event.error);
+        };
+
+        // Start listening on click
+        micBtn.addEventListener('click', () => {
+            recognition.start();
+        });
+    } else {
+        // Hide button if the browser doesn't support the API
+        micBtn.style.display = 'none';
+        console.warn("Speech Recognition API not supported in this browser.");
+    }
 
     // Handle Form Submission
     document.getElementById('submitBtn').addEventListener('click', async () => {
