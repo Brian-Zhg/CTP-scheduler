@@ -3,7 +3,8 @@ module.exports = async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { promptText, currentDate, timeZone } = req.body;
+    // Fixed: Added existingEvents to destructuring
+    const { promptText, currentDate, timeZone, existingEvents } = req.body;
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
@@ -24,10 +25,11 @@ module.exports = async function handler(req, res) {
             4. Format "start" and "end" as "YYYY-MM-DDTHH:mm:ss" (NO trailing "Z" and NO UTC offsets).
             5. Default event duration to 30 minutes if unspecified and it is a timed event.
             6. Evaluate if the event is an all-day event. Set "allDay" to true if the user explicitly says "all day", if the time range spans 23 hours or more, or if the user mentions a day but provides NO specific time.
-            7. Use the "Existing Calendar Events" context to resolve relative time references (e.g., "after dinner", "before my meeting").
-            8. If the user asks to duplicate, copy, or repeat a schedule (e.g., "same schedule Friday as Thursday"), use the Existing Calendar Events to generate a distinct event object for every event from the source day, shifted to the target day at their respective times.
-            9. ONLY return the newly requested events. Do NOT output the existing events that were already on the calendar.
+            7. Use the "Existing Calendar Events" context to resolve relative time references.
+            8. If the user asks to duplicate a schedule, use the Existing Calendar Events to generate a distinct event object for every event from the source day, shifted to the target day.
+            9. ONLY return the newly requested events. Do NOT output the existing events.
             10. Do not wrap output in markdown codeblocks.
+            11. If the user specifies a repeating event (e.g., "every week", "every month"), explicitly generate distinct event objects for the next 12 occurrences of that event.
 
             JSON Schema:
             [
@@ -39,6 +41,7 @@ module.exports = async function handler(req, res) {
               }
             ]
         `;
+        
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
