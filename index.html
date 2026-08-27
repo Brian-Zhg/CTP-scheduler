@@ -104,6 +104,29 @@
     <script>
 
         let calendar;
+        document.addEventListener('DOMContentLoaded', function() {
+            const calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'timeGridWeek',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                events: [], // Starts empty
+                editable: true,
+                selectable: true,
+                nowIndicator: true,
+                scrollTime: '01:00:00',
+                // Add click listener for deletion
+                eventClick: function(info) {
+                    if (confirm(`Delete the event: "${info.event.title}"?`)) {
+                        info.event.remove();
+                    }
+                }
+            });
+            calendar.render();
+        });
 
 
         // ==========================================
