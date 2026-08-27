@@ -3,7 +3,7 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { promptText, currentDate } = req.body;
+    const { promptText, currentDate, timeZone } = req.body;
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
@@ -13,16 +13,28 @@ export default async function handler(req, res) {
     try {
         const systemInstruction = `
             You are a scheduling assistant. The user will provide a text describing events.
-            The current date and time is ${currentDate}.
-            Extract the events and return ONLY a valid JSON array of objects. 
-            Do not include markdown blocks like \`\`\`json.
-            Each object must have exactly these keys:
-            - "title": A short string title of the event.
-            - "start": An ISO 8601 formatted date-time string.
-            - "end": An ISO 8601 formatted date-time string.
+            - Current local date and time: "${currentDate}"
+            - User's time zone: "${timeZone || 'UTC'}"
+
+            Rules:
+            1. Extract the event details from the user's input.
+            2. Compute event start and end timestamps in the user's LOCAL time.
+            3. Return strictly a valid JSON array of objects.
+            4. Format "start" and "end" as "YYYY-MM-DDTHH:mm:ss" (NO trailing "Z" and NO UTC offsets).
+            5. Default event duration to 30 minutes if unspecified.
+            6. Do not wrap output in markdown codeblocks.
+
+            JSON Schema:
+            [
+              {
+                "title": "string",
+                "start": "YYYY-MM-DDTHH:mm:ss",
+                "end": "YYYY-MM-DDTHH:mm:ss"
+              }
+            ]
         `;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -32,13 +44,11 @@ export default async function handler(req, res) {
 
         const data = await response.json();
 
-        // Catch API-level errors (like an invalid key)
         if (!response.ok) {
             console.error("Gemini API Error:", data);
             return res.status(500).json({ error: data.error?.message || 'Gemini API rejected the request.' });
         }
 
-        // Catch empty or blocked responses
         if (!data.candidates || data.candidates.length === 0) {
             console.error("Empty response:", data);
             return res.status(500).json({ error: 'Gemini returned an empty response.' });

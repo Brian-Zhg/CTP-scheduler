@@ -83,7 +83,7 @@
             calendar.render();
         });
 
-        // --- SECURE BACKEND INTEGRATION ---
+       // --- SECURE BACKEND INTEGRATION ---
         document.getElementById('submitBtn').addEventListener('click', async () => {
             const inputField = document.getElementById('promptInput');
             const statusMessage = document.getElementById('statusMessage');
@@ -91,59 +91,55 @@
 
             if (!promptText) return alert("Please enter an activity first.");
 
-            // Update UI to show loading state
             statusMessage.classList.remove('hidden');
             statusMessage.textContent = 'Processing with Gemini...';
             statusMessage.className = 'text-sm font-medium text-blue-600';
             document.getElementById('submitBtn').disabled = true;
 
             try {
-                // Get the current date so Gemini knows what "tomorrow" means relative to right now
-                const currentDate = new Date().toISOString();
+                // Get user's exact local time and timezone
+                const now = new Date();
+                const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const localDateString = now.toString();
                 
-                // Call your secure Vercel backend endpoint
                 const response = await fetch('/api/schedule', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         promptText: promptText,
-                        currentDate: currentDate
+                        currentDate: localDateString,
+                        timeZone: userTimeZone
                     })
                 });
 
                 if (!response.ok) throw new Error(`Server Error: ${response.status}`);
                 
-                // Retrieve the parsed JSON array from your backend
                 const events = await response.json();
 
-                // Add each event to the FullCalendar instance dynamically
                 events.forEach(event => {
                     calendar.addEvent({
                         title: event.title,
                         start: event.start,
                         end: event.end,
-                        backgroundColor: '#3b82f6', // Tailwind blue-500
-                        borderColor: '#2563eb'     // Tailwind blue-600
+                        backgroundColor: '#3b82f6',
+                        borderColor: '#2563eb'
                     });
                 });
 
-                // Success UI update
                 statusMessage.textContent = `Successfully added ${events.length} event(s)!`;
                 statusMessage.className = 'text-sm font-medium text-green-600';
-                inputField.value = ''; // Clear input
+                inputField.value = '';
 
             } catch (error) {
                 console.error(error);
-                statusMessage.textContent = 'Error processing request. Check console and your Vercel deployment logs.';
+                statusMessage.textContent = 'Error processing request. Check console.';
                 statusMessage.className = 'text-sm font-medium text-red-600';
             } finally {
                 statusMessage.classList.remove('hidden');
                 document.getElementById('submitBtn').disabled = false;
-                
-                // Hide status message after 3 seconds
                 setTimeout(() => { statusMessage.classList.add('hidden'); }, 3000);
             }
-        });
+        }); 
     </script>
 </body>
 </html>
