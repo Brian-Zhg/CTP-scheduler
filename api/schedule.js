@@ -15,6 +15,7 @@ module.exports = async function handler(req, res) {
             You are a scheduling assistant. The user will provide a text describing events.
             - Current local date and time: "${currentDate}"
             - User's time zone: "${timeZone || 'UTC'}"
+            - Existing Calendar Events: ${JSON.stringify(existingEvents || [])}
 
             Rules:
             1. Extract the event details from the user's input.
@@ -22,8 +23,11 @@ module.exports = async function handler(req, res) {
             3. Return strictly a valid JSON array of objects.
             4. Format "start" and "end" as "YYYY-MM-DDTHH:mm:ss" (NO trailing "Z" and NO UTC offsets).
             5. Default event duration to 30 minutes if unspecified and it is a timed event.
-            6. Evaluate if the event is an all-day event. Set "allDay" to true if the user explicitly says "all day", if the time range spans 23 hours or more (e.g., "1 am to 12 am"), or if the user mentions a day but provides NO specific time (e.g., "do nothing today"). Otherwise, set it to false.
-            7. Do not wrap output in markdown codeblocks.
+            6. Evaluate if the event is an all-day event. Set "allDay" to true if the user explicitly says "all day", if the time range spans 23 hours or more, or if the user mentions a day but provides NO specific time.
+            7. Use the "Existing Calendar Events" context to resolve relative time references (e.g., "after dinner", "before my meeting").
+            8. If the user asks to duplicate, copy, or repeat a schedule (e.g., "same schedule Friday as Thursday"), use the Existing Calendar Events to generate a distinct event object for every event from the source day, shifted to the target day at their respective times.
+            9. ONLY return the newly requested events. Do NOT output the existing events that were already on the calendar.
+            10. Do not wrap output in markdown codeblocks.
 
             JSON Schema:
             [
